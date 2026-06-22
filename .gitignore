@@ -1,0 +1,35 @@
+# 排除私钥和敏感认证信息
+.ssh/
+.agents/
+*.key
+
+# 排除前端依赖和打包产物
+backup-agent/web/node_modules/
+backup-agent/web/dist/
+backup-agent/server/dist/
+
+# 排除编译的临时二进制
+backup-agent/server/shield-backup-server
+backup-agent/server/main
+backup-agent/server/test_main
+backup-agent/server/server
+
+# 排除本地备份配置文件和冷备数据（关键隐私防泄露）
+backup-agent/config/settings.json
+backup-agent/config/rclone.conf
+backup-agent/config/health_report.json
+backup-agent/config/local_pull_manifest.json
+backup-agent/config/local_backup/
+backup-agent/config/*.log
+
+# 排除各种备份包、日志和历史包
+*.tar.gz
+*.tar.gz.enc
+*.enc
+*.log
+backup-agent-old-bak.tar.gz
+tmp/
+
+# OS 产生的垃圾文件
+.DS_Store
+Thumbs.db

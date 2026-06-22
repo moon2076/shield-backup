@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  backup-agent:
+    image: alpine:latest
+    container_name: backup-agent
+    restart: unless-stopped
+    # 限制 CPU 和内存资源以保护宿主机正常业务运行，备份操作主要是 I/O 密集型
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+    volumes:
+      # 只读方式挂载 Vaultwarden 目录，以读取 db.sqlite3 数据库
+      - /opt/stacks/vaultwarden/data:/vaultwarden_data:ro
+      # 只读方式挂载 LLDAP 目录，以读取 lldap.db 数据库
+      - /opt/stacks/ldap/data:/lldap_data:ro
+      # 挂载本地的 rclone 配置文件目录，持久化保存云盘 Token 密钥
+      - ./config:/config
+      # 只读挂载我们编写好的备份主脚本
+      - ./backup.sh:/app/backup.sh:ro
+      # 挂载 Go 控制中心服务源码，用于编译和运行
+      - ./server:/app/server
+      # 挂载系统与数据库一键恢复脚本，随包同步至存储池
+      - ./restore_system.sh:/app/restore_system.sh:ro
+      - ./restore_db.sh:/app/restore_db.sh:ro
+      - ../one_click_restore.sh:/app/one_click_restore.sh:ro
+      # 挂载全局 stacks 目录，用于执行配置打包归档及一键安全还原
+      - /opt/stacks:/source_stacks:rw
+      # 只读挂载整个宿主机根目录，用以实现自选宿主机资产相对路径热备
+      - /:/host:ro
+      # 挂载宿主机 Docker Socket 以允许容器内执行 docker 备份指令
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Asia/Taipei
+      # ------------------------------------------------------------------------
+      # 【配置提醒】请在部署时将以下占位符修改为您真实的配置
+      # 建议使用环境变量或将变量配置在同目录下的 .env 文件中
+      # ------------------------------------------------------------------------
+      - TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+      - TELEGRAM_CHAT_ID=your_telegram_chat_id_here
+      - BACKUP_PASSWORD=your_backup_passphrase_here
+    ports:
+      # 暴露 9999 端口以访问 Web 可视化控制页面
+      - "9999:9999"
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.shield-backup.rule=Host(`shield-backup.xxxiong.top`)
+      - traefik.http.routers.shield-backup.entrypoints=websecure
+      - traefik.http.routers.shield-backup.tls.certresolver=myresolver
+      - traefik.http.services.shield-backup.loadbalancer.server.port=9999
+      - traefik.http.routers.shield-backup.middlewares=authelia@docker
+    entrypoint: |
+      /bin/sh -c "
+      echo '==================================================' &&
+      echo '>>> 正在初始化 Shield-Backup 去中心化灾备中心...' &&
+      echo '==================================================' &&
+      apk add --no-cache rclone sqlite bash curl tzdata openssl tar docker-compose &&
+      mkdir -p /root/.config/rclone/ &&
+      cp /config/rclone.conf /root/.config/rclone/rclone.conf 2>/dev/null || true &&
+      if [ ! -f '/app/server/shield-backup-server' ]; then
+        echo '>>> 正在编译 Go 控制中心二进制...' &&
+        apk add --no-cache --virtual .build-deps go &&
+        CGO_ENABLED=0 go build -o /app/server/shield-backup-server /app/server/main.go &&
+        apk del .build-deps &&
+        echo '>>> Go 控制中心编译成功！' || { echo '>>> Go 控制中心编译失败！'; exit 1; }
+      fi &&
+      echo '>>> 启动 Shield-Backup Go 控制后台服务（监听 9999 端口）...' &&
+      echo '==================================================' &&
+      exec /app/server/shield-backup-server
+      "
+
+networks:
+  proxy:
+    external: true

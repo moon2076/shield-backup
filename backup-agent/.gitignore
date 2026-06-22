@@ -1,0 +1,40 @@
+# ==============================================================================
+# Git 忽略配置规则 (Strict Git Ignore Settings for Shield-Backup)
+# ==============================================================================
+
+# A. 忽略系统与 IDE 产生的临时文件/本地配置
+.DS_Store
+.idea/
+.vscode/
+*.local
+*.tmp
+
+# B. 忽略本地运行产生的配置与凭证 (极其重要，严防泄露秘钥和安全 Token)
+/config/*
+# 保留 config 目录本身，但不追踪里面的敏感文件
+!/config/.gitkeep
+
+# C. 忽略本地草稿与测试文件夹
+/scratch/
+compose_temp.yaml
+temp_content.txt
+temp_target.txt
+restore_test.sh
+restore_tmp.py
+
+# D. 忽略 Go 后端项目编译产物及构建缓存
+/server/shield-backup-server
+/server/debug
+/server/server.exe
+/server/main
+/server/test_main
+/server/bisect_tmp.go
+/server/test_gfs.go
+
+# E. 忽略 React 前端项目的依赖包与编译缓存
+/web/node_modules/
+/web/dist/
+/web/dist-ssr/
+/web/*.local
+/web/.env
+/web/.env.*.local

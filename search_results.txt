@@ -1,0 +1,382 @@
+44: 	BackupPassword   string   `json:"backup_password"`
+62: 	SystemBackupMode string   `json:"system_backup_mode"` // "full_inc" (全量+累积增量), "full_only" (仅每日全量)
+96: 	BackupFile string    `json:"backup_file"`
+97: 	BackupType string    `json:"backup_type"` // "db" or "sys"
+178: 	Type        string    `json:"type"`          // "db_backup", "sys_backup", "upload", "download", "sync"
+189: 	BackupFile  string    `json:"backup_file"`   // 新增：备份/传输的目标文件名
+457: 	isBackupScript := strings.Contains(cmdName, "backup.sh")
+459: 		if strings.Contains(arg, "backup.sh") {
+460: 			isBackupScript = true
+465: 	if isBackupScript {
+471: 			"BACKUP_PASSWORD="+currentConfig.BackupPassword,
+472: 			"CUSTOM_BACKUP_PATHS="+customPathsJoined,
+660: 			} else if strings.Contains(line, "[BACKUP_FILE_CREATED]") {
+721: 		BackupPassword:   "your_backup_passphrase_here",
+734: 		LocalPullPath:    `D:\Backup\VPS_Backup`,
+736: 		SystemBackupMode: "full_inc",
+789: 				loaded.LocalPullPath = `D:\Backup\VPS_Backup`
+884: 				output, err := executeBackup("db", false)
+918: 				output, err := executeBackup("sys", false)
+1075: 		if rel == "backup-agent/config" || strings.HasPrefix(rel, "backup-agent/config/") {
+1091: func checkAndSaveDeduplication(backupType string) bool {
+1095: 	if backupType == "db" {
+1096: 		statePath = "/config/last_db_backup_state.json"
+1098: 	} else if backupType == "sys" {
+1105: 		statePath = "/config/last_sys_backup_state.json"
+1117: 		log.Printf("[DEDUPLICATION] %s 备份去重：检测到文件没有变更，跳过本次备份", backupType)
+1169: func verifyBackupPackage(backupPath string, backupType string) HealthReport {
+1171: 		BackupFile: filepath.Base(backupPath),
+1172: 		BackupType: backupType,
+1181: 	pwd := currentConfig.BackupPassword
+1188: 	cmdDec := exec.CommandContext(ctx, "openssl", "enc", "-d", "-aes-256-cbc", "-salt", "-pbkdf2", "-pass", "pass:"+pwd, "-in", backupPath)
+1258: 	if backupType == "db" {
+1267: 	} else if backupType == "sys" {
+1305: 	} else if backupType == "img" {
+1444: func autoWrapCloudRemotes(backupPassword string) {
+1491: 					"remote", name+":backup/encrypted",
+1492: 					"password", backupPassword,
+1504: 					"remote", name+":backup/encrypted",
+1505: 					"password", backupPassword,
+1607: 		if strings.HasPrefix(f.Name, "restore_system_") || strings.HasPrefix(f.Name, "restore_db_") || strings.Contains(f.Name, "_keep_") {
+1694: 		if strings.HasPrefix(f.Name, "restore_system_") && strings.HasSuffix(f.Name, ".sh") {
+1696: 		} else if strings.HasPrefix(f.Name, "restore_db_") && strings.HasSuffix(f.Name, ".sh") {
+1725: func syncRestoreScriptsToPools() {
+1726: 	sysMD5, _ := getFileMD5("/app/restore_system.sh")
+1727: 	dbMD5, _ := getFileMD5("/app/restore_db.sh")
+1733: 	sysName := fmt.Sprintf("restore_system_%s.sh", sysMD5[:8])
+1734: 	dbName := fmt.Sprintf("restore_db_%s.sh", dbMD5[:8])
+1737: 	localDirs := []string{"/config/local_backup/hourly_db", "/config/local_backup/system_backup"}
+1740: 		exec.Command("cp", "-f", "/app/restore_system.sh", filepath.Join(dir, sysName)).Run()
+1741: 		exec.Command("cp", "-f", "/app/restore_db.sh", filepath.Join(dir, dbName)).Run()
+1756: 			exec.CommandContext(ctx, "rclone", "copyto", "/app/restore_system.sh", rem+"backup/hourly_db/"+sysName, "--config", "/config/rclone.conf").Run()
+1762: 			exec.CommandContext(ctx, "rclone", "copyto", "/app/restore_db.sh", rem+"backup/hourly_db/"+dbName, "--config", "/config/rclone.conf").Run()
+1768: 			exec.CommandContext(ctx, "rclone", "copyto", "/app/restore_system.sh", rem+"backup/system_backup/"+sysName, "--config", "/config/rclone.conf").Run()
+1774: 			exec.CommandContext(ctx, "rclone", "copyto", "/app/restore_db.sh", rem+"backup/system_backup/"+dbName, "--config", "/config/rclone.conf").Run()
+1812: 		cmd := exec.Command("curl", "-s", "-F", "document=@/app/restore_system.sh",
+1815: 			"-F", "caption=🔒 Shield-Backup 一键系统恢复脚本 ("+sysName+")\n#restore_script",
+1824: 		cmd := exec.Command("curl", "-s", "-F", "document=@/app/restore_db.sh",
+1827: 			"-F", "caption=🔒 Shield-Backup 一键数据库恢复脚本 ("+dbName+")\n#restore_script",
+1842: func runCleanupForPools(backupType string) {
+1843: 	log.Printf("[CLEANUP] 开始执行 %s 备份在各大储存池中的淘汰清理...", backupType)
+1849: 	if backupType == "db" || backupType == "all" {
+1850: 		localDir := "/config/local_backup/hourly_db"
+1864: 	if backupType == "sys" || backupType == "all" {
+1865: 		localDir := "/config/local_backup/system_backup"
+1902: 		if backupType == "db" || backupType == "all" {
+1903: 			remoteDir := remote + "backup/hourly_db"
+1918: 		if backupType == "sys" || backupType == "all" {
+1919: 			remoteDir := remote + "backup/system_backup"
+1936: 	if backupType == "db" || backupType == "all" {
+1939: 	if backupType == "sys" || backupType == "all" {
+1944: func cleanupTelegramPool(backupType string, ruleStr string) {
+1960: 		if (backupType == "db" && isHourly) || (backupType == "sys" && !isHourly) {
+2123: 		localDirs := []string{"/config/local_backup/hourly_db", "/config/local_backup/system_backup"}
+2179: 	msg := "🔒 *Shield-Backup 灾备校验通知*\n\n" + text
+2188: func executeBackup(backupType string, isManual bool) (string, error) {
+2191: 		if checkAndSaveDeduplication(backupType) {
+2192: 			return fmt.Sprintf("[DEDUPLICATION] 检测到 %s 备份对象无文件变更，跳过本次备份。", backupType), nil
+2197: 	mainTaskID := fmt.Sprintf("t_%s_main_%d", backupType, time.Now().UnixNano())
+2204: 		Name:        fmt.Sprintf("主灾备归档任务 (%s)", backupType),
+2205: 		Type:        backupType + "_backup",
+2292: 	// 2. 调用备份脚本 (backup.sh 只负责物理打包，不负责分发和删除临时包)
+2297: 	outputStr, err := runTrackedCommand(backupType+"_backup", "打包物理快照 ("+backupType+")", "/bin/bash", "/app/backup.sh", backupType)
+2304: 	re := regexp.MustCompile(`\[BACKUP_FILE_CREATED\]\s+(\S+)`)
+2313: 	mainTask.BackupFile = filepath.Base(tempFilePath)
+2323: 	report := verifyBackupPackage(tempFilePath, backupType)
+2330: 	if !report.DecryptOk || !report.TarOk || (backupType == "db" && !report.DBCheckOk) || (backupType == "sys" && !report.ComposeOk) {
+2332: 		warnMsg := fmt.Sprintf("⚠️【灾备验证失败警报】\n文件名: %s\n类型: %s\n\n%s", filepath.Base(tempFilePath), backupType, report.Summary)
+2346: 	if backupType == "db" {
+2347: 		localDestDir = "/config/local_backup/hourly_db"
+2349: 		localDestDir = "/config/local_backup/system_backup"
+2354: 	log.Printf("[BACKUP] 正在归档快照至本地冷备存储池: %s ...", localFinalPath)
+2442: 			tag := "#database_backup"
+2443: 			captionTitle := "🔒 Shield-Backup 数据库加密热备 (验证通过)"
+2444: 			if backupType == "sys" {
+2445: 				tag = "#system_inc_backup"
+2446: 				captionTitle = "📦 Shield-Backup 系统配置累积增量备份 (验证通过)"
+2447: 			} else if backupType == "img" {
+2448: 				tag = "#docker_images_backup"
+2449: 				captionTitle = "📦 Shield-Backup Docker 运行镜像归档备份 (验证通过)"
+2510: 		syncBackupFileToClouds(tempFilePath, backupType)
+2521: 	syncRestoreScriptsToPools()
+2774: func syncBackupFileToClouds(filePath string, backupType string) {
+2789: 	if backupType == "db" {
+2790: 		subDir = "backup/hourly_db/"
+2792: 		subDir = "backup/system_backup/"
+2881: 			if strings.HasPrefix(name, "restore_system_") || strings.HasPrefix(name, "restore_db_") {
+2914: 		if strings.HasPrefix(f.Name, "restore_system_") || strings.HasPrefix(f.Name, "restore_db_") {
+3210: 		pwd := currentConfig.BackupPassword
+3454: 	pwd := currentConfig.BackupPassword
+3568: 	pwd := currentConfig.BackupPassword
+3593:     <title>Shield-Backup - %%s</title>
+3721: 			actualPassword := currentConfig.BackupPassword
+3765: 			pwd := currentConfig.BackupPassword
+3814: 			if files, err := readLocalFiles("/config/local_backup/hourly_db"); err == nil {
+3820: 			if files, err := readLocalFiles("/config/local_backup/system_backup"); err == nil {
+3853: 				if files, err := getRcloneFiles(remote + "backup/hourly_db"); err == nil {
+3859: 				if files, err := getRcloneFiles(remote + "backup/system_backup"); err == nil {
+3915: 			localPath = `D:\Backup\VPS_Backup`
+3933: $LocalBackupDir = "` + localPath + `"
+3937: if (-not (Test-Path $LocalBackupDir)) {
+3938:     New-Item -ItemType Directory -Force -Path $LocalBackupDir | Out-Null
+3943:     Write-Host "         Shield-Backup 本地冷备份自适应增删同步" -ForegroundColor Cyan
+3949: if (Test-Path $LocalBackupDir) {
+3950:     $LocalFilesList = Get-ChildItem -Path $LocalBackupDir -File | ForEach-Object {
+3980:         $FilePath = Join-Path $LocalBackupDir $FileToDelete
+3996:         $LocalPath = Join-Path $LocalBackupDir $FileName
+3999:         $DownloadUrl = "$VpsOrigin/api/backups/download?file=$FileName&token=$Token"
+4042: Show-Notification -Title "Shield-Backup 本地同步简报" -Message $NotifyMessage
+4076: $TaskName = "ShieldBackupSyncTask"
+4093: 		w.Header().Set("Content-Disposition", "attachment; filename=shield-backup-local-puller.zip")
+4120: 	mux.HandleFunc("/api/backups/list", func(w http.ResponseWriter, r *http.Request) {
+4135: 		hFiles, _ := readLocalFiles("/config/local_backup/hourly_db")
+4136: 		sFiles, _ := readLocalFiles("/config/local_backup/system_backup")
+4147: 	mux.HandleFunc("/api/backups/download", func(w http.ResponseWriter, r *http.Request) {
+4165: 			hFiles, _ := readLocalFiles("/config/local_backup/hourly_db")
+4166: 			sFiles, _ := readLocalFiles("/config/local_backup/system_backup")
+4180: 				localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+4182: 				localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+4186: 			if cleanName == "restore_system.sh" {
+4187: 				localPath = "/app/restore_system.sh"
+4188: 			} else if cleanName == "restore_db.sh" {
+4189: 				localPath = "/app/restore_db.sh"
+4191: 				localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+4193: 				localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+4194: 			} else if strings.HasPrefix(cleanName, "restore_system_") {
+4196: 				localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+4197: 			} else if strings.HasPrefix(cleanName, "restore_db_") {
+4198: 				localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+4235: 			BackupFile:  cleanName,
+4510: 		lastBackupText := "未检测到备份"
+4511: 		localHourlyDir := "/config/local_backup/hourly_db"
+4516: 					if strings.HasPrefix(entry.Name(), "restore_") {
+4527: 					lastBackupText = strconv.Itoa(minutesAgo) + " 分钟前"
+4529: 					lastBackupText = strconv.Itoa(minutesAgo/60) + " 小时前"
+4535: 		if files, err := readLocalFiles("/config/local_backup/hourly_db"); err == nil {
+4538: 		if files, err := readLocalFiles("/config/local_backup/system_backup"); err == nil {
+4562: 			"last_backup_time":  lastBackupText,
+4589: 	mux.HandleFunc("/api/backups", func(w http.ResponseWriter, r *http.Request) {
+4620: 				hFiles, _ = readLocalFiles("/config/local_backup/hourly_db")
+4621: 				sFiles, _ = readLocalFiles("/config/local_backup/system_backup")
+4672: 					hFiles, _ = getRcloneFiles(remoteName + "backup/hourly_db")
+4673: 					sFiles, _ = getRcloneFiles(remoteName + "backup/system_backup")
+4718: 							localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+4720: 							localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+4728: 						localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+4730: 						localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+4751: 						targetDir := "backup/hourly_db/"
+4753: 							targetDir = "backup/system_backup/"
+4780: 			filesToRestore := req.Filenames
+4781: 			if len(filesToRestore) == 0 && req.Filename != "" {
+4782: 				filesToRestore = []string{req.Filename}
+4786: 			isBatch := len(filesToRestore) > 1
+4788: 			if len(filesToRestore) > 0 {
+4789: 				firstFile = filesToRestore[0]
+4795: 			pwd := currentConfig.BackupPassword
+4799: 				goto restoreSystemLabel
+4809: 				for _, fname := range filesToRestore {
+4817: 					localFilePath := filepath.Join("/config/local_backup/hourly_db", cName)
+4833: 							log.Printf("[RESTORE] 正在从云端 %s 拷贝拉取热备包 %s ...", req.Source, cName)
+4834: 							cmd := exec.Command("rclone", "copyto", remoteName+"backup/hourly_db/"+cName, localFilePath, "--config", "/config/rclone.conf")
+4843: 					log.Printf("[RESTORE] 正在解密还原热备数据库 %s ...", cName)
+4844: 					restoreTmp := "/tmp/restore_db_work"
+4845: 					os.RemoveAll(restoreTmp)
+4846: 					os.MkdirAll(restoreTmp, 0755)
+4849: 					cmdTar := exec.Command("tar", "-xz", "-C", restoreTmp)
+4861: 					vSrc := filepath.Join(restoreTmp, "vaultwarden/data/db.sqlite3")
+4862: 					lSrc := filepath.Join(restoreTmp, "ldap/data/users.db")
+4864: 					restoredThisTime := 0
+4867: 						restoredThisTime++
+4871: 						restoredThisTime++
+4874: 					os.RemoveAll(restoreTmp)
+4876: 					if restoredThisTime > 0 {
+4899: 		restoreSystemLabel:
+4903: 				log.Printf("[RESTORE] 开始从网页端还原系统配置: %s ...", cleanName)
+4906: 				rollbackName := fmt.Sprintf("system_rollback_before_restore_%s.tar.gz.enc", time.Now().Format("20060102_150405"))
+4907: 				rollbackPath := filepath.Join("/config/local_backup/system_backup", rollbackName)
+4908: 				log.Printf("[RESTORE] 正在创建安全回滚快照: %s ...", rollbackName)
+4910: 				exec.Command("mkdir", "-p", "/config/local_backup/system_backup").Run()
+4912: 					"tar --exclude='*.log' --exclude='backup-agent/config' -cz -C /source_stacks . | openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:%s -out %s",
+4916: 					log.Printf("[RESTORE] 创建回滚快照失败: %v", err)
+4918: 					log.Printf("[RESTORE] 回滚快照创建成功: %s", rollbackPath)
+4922: 				localFilePath := filepath.Join("/config/local_backup/system_backup", cleanName)
+4938: 						log.Printf("[RESTORE] 正在从云端 %s 拷贝拉取系统配置包 %s ...", req.Source, cleanName)
+4939: 						cmd := exec.Command("rclone", "copyto", remoteName+"backup/system_backup/"+cleanName, localFilePath, "--config", "/config/rclone.conf")
+4957: 						fullBackupName := fmt.Sprintf("system_full_%s.tar.gz.enc", monthStamp)
+4958: 						fullLocalPath := filepath.Join("/config/local_backup/system_backup", fullBackupName)
+4962: 							fullCloudPath := "/tmp/" + fullBackupName
+4975: 								cmd := exec.Command("rclone", "copyto", remoteName+"backup/system_backup/"+fullBackupName, fullCloudPath, "--config", "/config/rclone.conf")
+4984: 							log.Printf("[RESTORE] 正在还原依赖的月度全量底座: %s ...", fullBackupName)
+4996: 							http.Error(w, "无法找到依赖的月度全量底座备份包: "+fullBackupName, http.StatusInternalServerError)
+5003: 				log.Printf("[RESTORE] 正在还原当前备份快照包: %s ...", cleanName)
+5015: 				log.Printf("[RESTORE] 系统配置还原成功！")
+5018: 					"message": fmt.Sprintf("系统配置已成功恢复！已自动创建安全回滚点 %s。由于网页容器虚拟化限制，请登录宿主机运行 restore_system.sh 或在宿主机上重启对应的项目容器以拉起新配置。", rollbackName),
+5047: 			if cfg.BackupPassword != "your_backup_passphrase_here" && len(cfg.BackupPassword) > 3 {
+5048: 				cfg.BackupPassword = cfg.BackupPassword[:1] + "********" + cfg.BackupPassword[len(cfg.BackupPassword)-1:]
+5069: 			if strings.Contains(newCfg.BackupPassword, "*****") || newCfg.BackupPassword == "••••••" || (newCfg.BackupPassword == "" && currentConfig.BackupPassword != "") {
+5070: 				newCfg.BackupPassword = currentConfig.BackupPassword
+5097: 					"remote", "pikpak:backup/encrypted",
+5098: 					"password", newCfg.BackupPassword,
+5104: 			autoWrapCloudRemotes(newCfg.BackupPassword)
+5118: 	mux.HandleFunc("/api/backup/now", func(w http.ResponseWriter, r *http.Request) {
+5130: 			backupType := r.URL.Query().Get("type")
+5131: 			if backupType != "db" && backupType != "sys" && backupType != "img" {
+5132: 				backupType = "db" // 默认数据库热备
+5138: 			expectedType := backupType + "_backup"
+5156: 			log.Printf("[API] 收到手动触发 %s 类型即时备份指令，已提交至后台协程异步执行...", backupType)
+5160: 				output, err := executeBackup(backupType, true) // isManual = true
+5162: 					log.Printf("[ERROR] 手动 %s 备份执行失败: %v, 日志: %s", backupType, err, output)
+5164: 					log.Printf("[SUCCESS] 手动 %s 备份成功完成，日志: %s", backupType, output)
+5165: 					runCleanupForPools(backupType)
+5207: 	mux.HandleFunc("/api/backups/transfer", handleBackupsTransfer)
+5208: 	mux.HandleFunc("/api/backups/labels", handleBackupsLabels)
+5209: 	mux.HandleFunc("/api/settings/export", handleSettingsExport)
+5216: 	mux.HandleFunc("/api/backups/archive", handleBackupsArchive)
+5355: // handleBackupsArchive 处理文件永久留档和取消永久留档操作
+5356: func handleBackupsArchive(w http.ResponseWriter, r *http.Request) {
+5433: 			oldPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+5434: 			newPath = filepath.Join("/config/local_backup/hourly_db", targetName)
+5436: 			oldPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+5437: 			newPath = filepath.Join("/config/local_backup/system_backup", targetName)
+5487: 			oldPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+5488: 			newPath = filepath.Join("/config/local_backup/hourly_db", targetName)
+5490: 			oldPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+5491: 			newPath = filepath.Join("/config/local_backup/system_backup", targetName)
+5507: 			subDir = "backup/hourly_db/"
+5509: 			subDir = "backup/system_backup/"
+5616: 	// 1. 清理系统日志文件 (/config/backup_agent.log)
+5617: 	logPath := "/config/backup_agent.log"
+5704: 	rotWriter, err := NewSizeRotatingWriter("/config/backup_agent.log", 2*1024*1024)
+5711: 	log.Printf("[START] Shield-Backup 灾备控制中心服务正在启动...")
+5714: 	autoWrapCloudRemotes(currentConfig.BackupPassword)
+5746: type SettingsExportData struct {
+5755: 	BackupAgentLog     string                 `json:"backup_agent_log,omitempty"`
+5757: 	BackupFileList     []LocalBackupMeta      `json:"backup_file_list,omitempty"`
+5899: type LocalBackupMeta struct {
+5907: 	Data  *SettingsExportData
+5952: func handleBackupsTransfer(w http.ResponseWriter, r *http.Request) {
+6107: 				hFiles, _ := getRcloneFiles(remote + "backup/hourly_db")
+6108: 				sFiles, _ := getRcloneFiles(remote + "backup/system_backup")
+6117: 			mainTask.BackupFile = cleanName
+6135: 				localPath = filepath.Join("/config/local_backup/hourly_db", cleanName)
+6136: 				subDir = "backup/hourly_db/"
+6138: 				localPath = filepath.Join("/config/local_backup/system_backup", cleanName)
+6139: 				subDir = "backup/system_backup/"
+6220: 					targetLocalPath = filepath.Join("/config/local_backup/hourly_db", targetName)
+6222: 					targetLocalPath = filepath.Join("/config/local_backup/system_backup", targetName)
+6277: 		hFiles, _ := readLocalFiles("/config/local_backup/hourly_db")
+6278: 		sFiles, _ := readLocalFiles("/config/local_backup/system_backup")
+6287: 			mainTask.BackupFile = cleanName
+6315: 				localDestPath = filepath.Join("/config/local_backup/hourly_db", targetName)
+6317: 				localDestPath = filepath.Join("/config/local_backup/system_backup", targetName)
+6400: 					subDir = "backup/hourly_db/"
+6402: 					subDir = "backup/system_backup/"
+6566: func handleBackupsLabels(w http.ResponseWriter, r *http.Request) {
+6577: 	localPath := "/config/backup_labels.json"
+6662: func handleSettingsExport(w http.ResponseWriter, r *http.Request) {
+6688: 		selected["backup_password"] = true
+6690: 		selected["gfs_backup_rules"] = true
+6693: 		selected["server_backup_list"] = true
+6697: 	pwd := currentConfig.BackupPassword
+6723: 				case "backup_password":
+6724: 					if selected["backup_password"] {
+6734: 					"cron_hours_db", "cron_hours_sys", "system_backup_mode":
+6735: 					if selected["gfs_backup_rules"] {
+6755: 	backupAgentLogContent := ""
+6769: 		if data, err := os.ReadFile("/config/backup_agent.log"); err == nil {
+6770: 			backupAgentLogContent = string(data)
+6785: 	if selected["task_history_logs"] || selected["server_backup_list"] {
+6786: 		if lData, err := os.ReadFile("/config/backup_labels.json"); err == nil {
+6796: 	var backupFileList []LocalBackupMeta
+6797: 	if selected["server_backup_list"] {
+6798: 		if dbFiles, err := readLocalFiles("/config/local_backup/hourly_db"); err == nil {
+6800: 				backupFileList = append(backupFileList, LocalBackupMeta{
+6807: 		if sysFiles, err := readLocalFiles("/config/local_backup/system_backup"); err == nil {
+6809: 				backupFileList = append(backupFileList, LocalBackupMeta{
+6818: 	exportObj := SettingsExportData{
+6827: 		BackupAgentLog:     backupAgentLogContent,
+6829: 		BackupFileList:     backupFileList,
+6834: 	rawJSON, err := json.Marshal(exportObj)
+6851: 	w.Header().Set("Content-Disposition", `attachment; filename="shield_backup_settings.enc"`)
+6895: 		mainPwd := currentConfig.BackupPassword
+6908: 	var importData SettingsExportData
+6946: 	// 3. backup_password
+6947: 	if hasSettings && importData.Settings["backup_password"] != nil {
+6948: 		modules["backup_password"] = map[string]interface{}{
+6954: 		modules["backup_password"] = map[string]interface{}{"available": false}
+6968: 	// 5. gfs_backup_rules
+6980: 		modules["gfs_backup_rules"] = map[string]interface{}{
+6986: 		modules["gfs_backup_rules"] = map[string]interface{}{"available": false}
+7011: 	hasLogs := importData.TaskHistory != "" || importData.BackupAgentLog != "" || importData.CronStatus != "" || importData.LocalPullLogs != ""
+7022: 	// 8. server_backup_list
+7023: 	if len(importData.BackupFileList) > 0 {
+7024: 		modules["server_backup_list"] = map[string]interface{}{
+7027: 			"message":    fmt.Sprintf("服务器曾产生的备份文件列表 (包含 %d 个快照，恢复时可从云端拉回自愈)", len(importData.BackupFileList)),
+7030: 		modules["server_backup_list"] = map[string]interface{}{"available": false}
+7072: 	restoredCount := 0
+7082: 	hasServerBackupList := false
+7089: 					restoredCount++
+7095: 					restoredCount++
+7098: 		case "backup_password":
+7099: 			if val, ok := tempImportedData.Data.Settings["backup_password"]; ok {
+7100: 				currentMap["backup_password"] = val
+7102: 				restoredCount++
+7108: 				restoredCount++
+7110: 		case "gfs_backup_rules":
+7114: 				"cron_hours_db", "cron_hours_sys", "system_backup_mode"}
+7121: 			restoredCount++
+7132: 			restoredCount++
+7143: 			if tempImportedData.Data.BackupAgentLog != "" {
+7144: 				os.WriteFile("/config/backup_agent.log", []byte(tempImportedData.Data.BackupAgentLog), 0644)
+7160: 			restoredCount++
+7161: 		case "server_backup_list":
+7162: 			hasServerBackupList = true
+7163: 			restoredCount++
+7166: 		if (mod == "task_history_logs" || mod == "server_backup_list") && len(tempImportedData.Data.Labels) > 0 {
+7173: 					if os.WriteFile("/config/backup_labels.json", data, 0644) == nil {
+7198: 				autoWrapCloudRemotes(mergedConfig.BackupPassword)
+7205: 	if hasServerBackupList && len(tempImportedData.Data.BackupFileList) > 0 {
+7206: 		listToPull := tempImportedData.Data.BackupFileList
+7209: 			log.Printf("[RESTORE] 开启后台从配置好的在线存储池拉回备份物理快照的自愈任务...")
+7210: 			pullMissingBackupsFromClouds(listToPull)
+7218: 		"message": fmt.Sprintf("成功还原并局部合并了 %d 个勾选的配置模块！", restoredCount),
+7222: // pullMissingBackupsFromClouds 从各大在线存储池中，按贪心最小负载分配算法拉回缺失的物理备份快照
+7223: func pullMissingBackupsFromClouds(files []LocalBackupMeta) {
+7242: 	log.Printf("[RESTORE] 开始执行云端物理快照拉回自愈，总快照数: %d", len(files))
+7260: 		log.Printf("[RESTORE] [ERROR] %s", msg)
+7267: 		log.Printf("[RESTORE] [WARN] %s", msg)
+7288: 			dbCmd := exec.CommandContext(ctxScan, "rclone", "lsjson", r+":backup/hourly_db", "--config", "/config/rclone.conf")
+7300: 			// 扫描 system_backup
+7301: 			sysCmd := exec.CommandContext(ctxScan, "rclone", "lsjson", r+":backup/system_backup", "--config", "/config/rclone.conf")
+7322: 	var missingFiles []LocalBackupMeta
+7328: 			localPath = filepath.Join("/config/local_backup/hourly_db", f.Path)
+7330: 			localPath = filepath.Join("/config/local_backup/system_backup", f.Path)
+7342: 		log.Printf("[RESTORE] 本地快照文件均完整，无需自愈拉回。")
+7362: 	remoteTasks := make(map[string][]LocalBackupMeta)
+7380: 			log.Printf("[RESTORE] 分配自愈任务: 快照 %s (大小 %.2f MB) -> 指派给云端 %s 拉回", file.Path, float64(file.Size)/(1024*1024), bestRemote)
+7382: 			log.Printf("[RESTORE] [WARN] 警告: 缺失的快照文件 %s 在所有可用云端中均未发现！", file.Path)
+7444: 		go func(remote string, list []LocalBackupMeta) {
+7449: 					localDestPath = filepath.Join("/config/local_backup/hourly_db", file.Path)
+7450: 					os.MkdirAll("/config/local_backup/hourly_db", 0755)
+7452: 					localDestPath = filepath.Join("/config/local_backup/system_backup", file.Path)
+7453: 					os.MkdirAll("/config/local_backup/system_backup", 0755)
+7458: 					srcPath = remote + ":backup/hourly_db/" + file.Path
+7460: 					srcPath = remote + ":backup/system_backup/" + file.Path
+7465: 				log.Printf("[RESTORE] 开始从云端 %s 下载快照 %s ...", remote, file.Path)
+7471: 					log.Printf("[RESTORE] [ERROR] 从 %s 拉回 %s 失败: %v", remote, file.Path, err)
+7478: 				log.Printf("[RESTORE] [SUCCESS] 成功拉回快照: %s", file.Path)
+7493: 			log.Printf("[RESTORE] [ERROR] 云端快照拉回任务因错误终止: %v", globalErr)
+7498: 			log.Printf("[RESTORE] [SUCCESS] 后台快照拉回自愈成功结束！")
+7533: 	localPath := "/config/backup_labels.json"
+7551: 		remoteFilePath := remote + "backup/backup_labels.json"
+7610: 				destPath := remote + "backup/backup_labels.json"
+7646: 			backupName := w.filename + ".1"
+7647: 			os.Remove(backupName)
+7648: 			os.Rename(w.filename, backupName)
+7675: 		backupName := w.filename + ".1"
+7676: 		os.Remove(backupName)
+7677: 		os.Rename(w.filename, backupName)
+7705: 	data, err := os.ReadFile("/config/backup_agent.log")
+7825: 		isBackupFile := strings.HasPrefix(name, "db_hourly_") || strings.HasPrefix(name, "system_") || strings.HasPrefix(name, "restore_")
+7826: 		if isBackupFile {
+8190: 		if toDeleteMap[item.Name] && !strings.Contains(item.Name, "_keep_") && !strings.HasPrefix(item.Name, "restore_") {
