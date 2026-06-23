@@ -8397,54 +8397,6 @@ func handleGenerateBootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	composeData, err := os.ReadFile("/source_stacks/backup-agent/compose.yaml")
-	if err != nil {
-		composeData, err = os.ReadFile("/app/compose.yaml")
-		if err != nil {
-			composeData = []byte(`version: "3.8"
-services:
-  backup-agent:
-    image: alpine:latest
-    container_name: backup-agent
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1024M
-    volumes:
-      - /opt/stacks/vaultwarden/data:/vaultwarden_data:ro
-      - /opt/stacks/ldap/data:/lldap_data:ro
-      - ./config:/config
-      - ./backup.sh:/app/backup.sh:ro
-      - ./server:/app/server
-      - ./restore_system.sh:/app/restore_system.sh:ro
-      - ./restore_db.sh:/app/restore_db.sh:ro
-      - ../one_click_restore.sh:/app/one_click_restore.sh:ro
-      - /opt/stacks:/source_stacks:rw
-      - /:/host:ro
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9999:9999"
-    networks:
-      - proxy
-    entrypoint: |
-      /bin/sh -c "
-      apk add --no-cache rclone sqlite bash curl tzdata openssl tar docker-compose &&
-      mkdir -p /root/.config/rclone/ &&
-      cp /config/rclone.conf /root/.config/rclone/rclone.conf 2>/dev/null || true &&
-      if [ ! -f '/app/server/shield-backup-server' ]; then
-        CGO_ENABLED=0 go build -o /app/server/shield-backup-server /app/server/main.go
-      fi &&
-      exec /app/server/shield-backup-server
-      "
-networks:
-  proxy:
-    external: true
-`)
-		}
-	}
-
 	template := `#!/bin/bash
 # Shield-Backup 新机快速展开脚本（由面板自动生成）
 # 生成时间: __GENERATE_TIME__
@@ -8457,7 +8409,7 @@ echo "=========================================="
 echo "🚀 Shield-Backup 新机快速展开"
 echo "=========================================="
 
-echo ">>> [1/4] 安装 Docker..."
+echo ">>> [1/4] 安装 Docker 与 Git..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sh
     systemctl enable --now docker
@@ -8465,17 +8417,31 @@ else
     echo "  [OK] Docker 已存在"
 fi
 
+if ! command -v git &> /dev/null; then
+    echo "  正在安装 Git 依赖..."
+    if command -v apt-get &> /dev/null; then
+        apt-get update && apt-get install -y git
+    elif command -v yum &> /dev/null; then
+        yum install -y git
+    elif command -v dnf &> /dev/null; then
+        dnf install -y git
+    else
+        echo "❌ 无法自动安装 Git，请手动安装后重试！"
+        exit 1
+    fi
+else
+    echo "  [OK] Git 已存在"
+fi
+
 echo ">>> [2/4] 创建网络..."
 docker network create proxy 2>/dev/null || true
 
-echo ">>> [3/4] 部署 Shield-Backup..."
-mkdir -p /opt/stacks/backup-agent/config
-cat > /opt/stacks/backup-agent/compose.yaml << 'SHIELD_COMPOSE_EOF'
-__COMPOSE_YAML_CONTENT__
-SHIELD_COMPOSE_EOF
+echo ">>> [3/4] 从 GitHub 克隆 Shield-Backup 项目文件..."
+rm -rf /opt/stacks/backup-agent
+git clone https://github.com/moon2076/shield-backup.git /opt/stacks/backup-agent
 
 echo ">>> [4/4] 启动容器..."
-cd /opt/stacks/backup-agent && docker compose up -d
+cd /opt/stacks/backup-agent/backup-agent && docker compose up -d
 
 echo "等待服务就绪..."
 for i in $(seq 1 30); do
@@ -8498,7 +8464,6 @@ echo "=========================================="
 
 	timeStr := time.Now().Format("2006-01-02 15:04:05")
 	script := strings.Replace(template, "__GENERATE_TIME__", timeStr, -1)
-	script = strings.Replace(script, "__COMPOSE_YAML_CONTENT__", string(composeData), -1)
 
 	w.Write([]byte(script))
 }
