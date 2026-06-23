@@ -5,9 +5,9 @@ param (
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$LocalBackupDir = "D:\Work_Project\VPS_RN\VPS_Backup"
+$LocalBackupDir = "D:\Backup\VPS_Backup"
 $VpsOrigin = "https://shield-backup.xxxiong.top"
-$Token = "625ea9005115224f821c53e5f58de7e9"
+$Token = "b20dec16715f9a1066b14765b1e34c58"
 
 if (-not (Test-Path $LocalBackupDir)) {
     New-Item -ItemType Directory -Force -Path $LocalBackupDir | Out-Null

@@ -8436,12 +8436,17 @@ fi
 echo ">>> [2/4] 创建网络..."
 docker network create proxy 2>/dev/null || true
 
-echo ">>> [3/4] 从 GitHub 克隆 Shield-Backup 项目文件..."
-rm -rf /opt/stacks/backup-agent
-git clone https://github.com/moon2076/shield-backup.git /opt/stacks/backup-agent
+echo ">>> [3/4] 从 GitHub 克隆 Shield-Backup 项目文件并部署结构..."
+rm -rf /tmp/shield-backup-repo /opt/stacks/backup-agent
+git clone https://github.com/moon2076/shield-backup.git /tmp/shield-backup-repo
+mkdir -p /opt/stacks
+cp -r /tmp/shield-backup-repo/backup-agent /opt/stacks/backup-agent
+cp /tmp/shield-backup-repo/one_click_restore.sh /opt/stacks/one_click_restore.sh
+chmod +x /opt/stacks/one_click_restore.sh
+rm -rf /tmp/shield-backup-repo
 
 echo ">>> [4/4] 启动容器..."
-cd /opt/stacks/backup-agent/backup-agent && docker compose up -d
+cd /opt/stacks/backup-agent && docker compose up -d
 
 echo "等待服务就绪..."
 for i in $(seq 1 30); do
